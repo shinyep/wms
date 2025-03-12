@@ -1,0 +1,37 @@
+/* 表格样式 */
+/* 表头样式 - 灰色背景 */
+.el-table th {
+  background-color: #e0e0e0 !important;
+}
+
+/* 表格内容行样式 - 白色和浅绿色交替背景 */
+.el-table--striped .el-table__body tr.el-table__row--striped td {
+  background-color: #e8f3df !important;
+}
+
+.el-table--striped .el-table__body tr td {
+  background-color: #ffffff !important;
+}
+
+/* 库存为零的单元格样式 - 浅红色背景 */
+.el-table .zero-inventory {
+  background-color: #ffebee !important;
+  padding: 0 !important;
+  display: block !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+
+/* 确保表格边框显示清晰 */
+.el-table--border, .el-table--group {
+  border: 1px solid #dcdfe6;
+}
+
+.el-table td, .el-table th.is-leaf {
+  border-bottom: 1px solid #dcdfe6;
+}
+
+/* 表格内容居中对齐 */
+.el-table .cell {
+  text-align: center;
+} 

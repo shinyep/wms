@@ -1,0 +1,58 @@
+// 主题色
+$primary: #409EFF;
+$success: #67C23A;
+$warning: #E6A23C;
+$danger: #F56C6C;
+$info: #909399;
+
+// 字体颜色
+$text-primary: #303133;
+$text-regular: #606266;
+$text-secondary: #909399;
+$text-placeholder: #C0C4CC;
+
+// 边框颜色
+$border-base: #DCDFE6;
+$border-light: #E4E7ED;
+$border-lighter: #EBEEF5;
+$border-extra-light: #F2F6FC;
+
+// 背景颜色
+$background-white: #FFFFFF;
+$background-black: #000000;
+$background-primary: #F5F7FA;
+
+// 布局尺寸
+$header-height: 50px;
+$sidebar-width: 210px;
+$sidebar-collapse-width: 54px;
+
+// 断点
+$sm: 768px;
+$md: 992px;
+$lg: 1200px;
+$xl: 1920px;
+
+// 菜单样式
+$menu-text: #BFCBD9;
+$menu-active-text: #409EFF;
+$menu-bg: #304156;
+$menu-hover: #263445;
+
+$sub-menu-bg: #1F2D3D;
+$sub-menu-hover: #001528;
+
+// 过渡
+$transition-duration: 0.3s;
+
+// 导出变量给其他文件使用
+:export {
+  menuBg: $menu-bg;
+  menuText: $menu-text;
+  menuActiveText: $menu-active-text;
+  subMenuActiveText: $sub-menu-hover;
+  menuHover: $sub-menu-hover;
+  subMenuBg: $sub-menu-bg;
+  subMenuHover: $sub-menu-hover;
+  sideBarWidth: $sidebar-width;
+} 
