@@ -1,0 +1,26 @@
+@import '../variables.scss';
+@import '../mixins.scss';
+
+.area-container {
+  .filter-container {
+    .filter-item {
+      &.el-select,
+      &.el-input {
+        width: 200px;
+      }
+      
+      &.add-button {
+        margin-left: 10px;
+      }
+    }
+  }
+  
+  .form-container {
+    width: 400px;
+    margin-left: 50px;
+  }
+  
+  .el-table {
+    width: 100%;
+  }
+} 

@@ -7,7 +7,7 @@
           type="primary"
           size="small"
           icon="el-icon-plus"
-          style="float: right; margin-left: 10px;"
+          class="float-right"
           @click="handleCreate"
         >
           新增报表记录
@@ -16,7 +16,7 @@
           type="warning"
           size="small"
           icon="el-icon-download"
-          style="float: right; margin-left: 10px;"
+          class="float-right"
           @click="handleExport"
         >
           导出报表
@@ -25,7 +25,7 @@
           type="success"
           size="small"
           icon="el-icon-check"
-          style="float: right; margin-left: 10px;"
+          class="float-right"
           @click="handleSaveReport"
         >
           保存报表
@@ -34,7 +34,7 @@
           type="danger"
           size="small"
           icon="el-icon-date"
-          style="float: right; margin-left: 10px;"
+          class="float-right"
           @click="handleCreateCurrentMonthReport"
           title="手动创建当月报表，期初库存为上月期末库存"
         >
@@ -44,7 +44,7 @@
           type="info"
           size="small"
           icon="el-icon-refresh"
-          style="float: right; margin-left: 10px;"
+          class="float-right"
           @click="handleUpdateInitialStock"
           title="使用上月期末库存更新当前月的期初库存，同时重新计算当前库存"
         >
@@ -55,10 +55,10 @@
       <!-- 搜索过滤区域 -->
       <el-form :inline="true" :model="listQuery" class="filter-container">
         <el-form-item label="仓库">
-          <el-select v-model="listQuery.warehouse_id" placeholder="选择仓库" clearable style="width: 180px;">
+          <el-select v-model="listQuery.warehouse_id" placeholder="选择仓库" clearable>
             <el-option v-for="item in warehouseOptions" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
-          <el-button type="text" @click="setManualWarehouseId" style="margin-left: 5px;">手动输入ID</el-button>
+          <el-button type="text" @click="setManualWarehouseId" class="manual-input-btn">手动输入ID</el-button>
         </el-form-item>
         <el-form-item label="月份">
           <el-date-picker
@@ -67,7 +67,6 @@
             placeholder="选择月份"
             format="yyyy年MM月"
             value-format="yyyy-MM"
-            style="width: 180px;"
           />
         </el-form-item>
         <el-form-item>
@@ -92,7 +91,7 @@
                   v-model="inboundSearchText"
                   placeholder="搜索入库记录..."
                   prefix-icon="el-icon-search"
-                  style="width: 300px"
+                  class="search-input"
                   size="small"
                   clearable
                   @clear="inboundSearchText = ''"

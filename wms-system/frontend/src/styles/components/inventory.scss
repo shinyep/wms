@@ -1,0 +1,241 @@
+@import '../variables.scss';
+@import '../mixins.scss';
+
+// 库存列表页样式
+.inventory-list {
+  padding: $spacing-large;
+
+  .filter-container {
+    @include flex-between;
+    margin-bottom: $spacing-base;
+    flex-wrap: wrap;
+    gap: $spacing-small;
+
+    .filter-item {
+      margin-bottom: $spacing-small;
+    }
+  }
+
+  .box-card {
+    margin-bottom: $spacing-large;
+
+    .card-header {
+      @include flex-between;
+      padding: $spacing-base;
+
+      .card-title {
+        font-size: $font-size-large;
+        font-weight: $font-weight-bold;
+        color: $text-primary;
+      }
+    }
+  }
+
+  .table-container {
+    margin-top: $spacing-base;
+  }
+
+  .operation-container {
+    @include flex-between;
+    margin-bottom: $spacing-base;
+
+    .action-buttons {
+      display: flex;
+      gap: $spacing-small;
+    }
+
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: $spacing-small;
+
+      .search-result {
+        color: $text-secondary;
+        font-size: $font-size-small;
+      }
+    }
+  }
+
+  .inventory-form {
+    width: 80%;
+    margin: 0 auto;
+    padding: $spacing-large;
+
+    .form-section {
+      margin-bottom: $spacing-large;
+    }
+
+    .form-footer {
+      text-align: right;
+      margin-top: $spacing-large;
+
+      .el-button {
+        margin-left: $spacing-small;
+      }
+    }
+  }
+
+  .statistics-section {
+    margin-top: $spacing-large;
+
+    .statistics-header {
+      @include flex-between;
+      margin-bottom: $spacing-base;
+    }
+
+    .statistics-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: $spacing-large;
+      margin-bottom: $spacing-large;
+    }
+
+    .statistics-card {
+      padding: $spacing-base;
+      border-radius: $border-radius-base;
+      background-color: $--color-white;
+      box-shadow: $--box-shadow-light;
+
+      .card-title {
+        color: $text-secondary;
+        margin-bottom: $spacing-small;
+      }
+
+      .card-value {
+        font-size: $font-size-large;
+        color: $text-primary;
+        font-weight: bold;
+
+        &.positive {
+          color: $--color-success;
+        }
+
+        &.negative {
+          color: $--color-danger;
+        }
+      }
+    }
+  }
+
+  /* 表格样式 */
+  .el-table {
+    margin-bottom: $spacing-large;
+    
+    td {
+      vertical-align: middle;
+      padding: $spacing-mini 0;
+    }
+    
+    th {
+      background-color: $bg-light;
+      color: $text-regular;
+      font-weight: $font-weight-medium;
+    }
+
+    .number-cell {
+      font-family: $font-family-mono;
+      color: $color-primary;
+      font-weight: $font-weight-medium;
+
+      &:empty, &.zero-value {
+        color: $text-secondary;
+      }
+    }
+  }
+
+  /* 分页容器样式 */
+  .pagination-container {
+    margin-top: $spacing-large;
+    text-align: right;
+  }
+
+  /* 对话框表单样式 */
+  .inventory-form {
+    width: 400px;
+    margin: 0 auto;
+    padding: $spacing-large;
+
+    .el-form-item {
+      margin-bottom: $spacing-large;
+    }
+
+    .dialog-footer {
+      text-align: right;
+      margin-top: $spacing-large;
+
+      .el-button + .el-button {
+        margin-left: $spacing-small;
+      }
+    }
+  }
+
+  /* 响应式布局 */
+  @media screen and (max-width: 1200px) {
+    .filter-container {
+      .filter-item {
+        margin-bottom: $spacing-mini;
+      }
+    }
+
+    .statistics-cards {
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+  }
+}
+
+// 库存盘点页样式
+.inventory-check {
+  .check-header {
+    @include flex-between;
+    margin-bottom: $spacing-large;
+  }
+
+  .check-info {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: $spacing-large;
+    margin-bottom: $spacing-large;
+
+    .info-card {
+      padding: $spacing-base;
+      border-radius: $border-radius-base;
+      @include box-shadow;
+
+      &.primary { background-color: rgba($color-primary, 0.1); }
+      &.success { background-color: rgba($color-success, 0.1); }
+      &.warning { background-color: rgba($color-warning, 0.1); }
+      &.danger { background-color: rgba($color-danger, 0.1); }
+
+      .card-title {
+        color: $text-secondary;
+        font-size: $font-size-small;
+      }
+
+      .card-value {
+        margin-top: $spacing-mini;
+        font-size: $font-size-large;
+        color: $text-primary;
+      }
+    }
+  }
+
+  .check-table {
+    margin-top: $spacing-large;
+  }
+}
+
+// 库存调整表单样式
+.inventory-form {
+  width: 400px;
+  margin: 0 auto;
+  padding: $spacing-large;
+
+  .form-footer {
+    margin-top: $spacing-xl;
+    text-align: right;
+
+    .el-button {
+      margin-left: $spacing-small;
+    }
+  }
+} 

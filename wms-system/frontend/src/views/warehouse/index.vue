@@ -1,19 +1,17 @@
 <template>
-  <div class="app-container">
+  <div class="app-container warehouse-index">
     <div class="filter-container">
       <el-input
         v-model="listQuery.search"
         placeholder="请输入仓库编号/名称"
-        style="width: 200px;"
-        class="filter-item"
+        class="filter-item search-input"
         @keyup.enter.native="handleFilter"
       />
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         搜索
       </el-button>
       <el-button
-        class="filter-item"
-        style="margin-left: 10px;"
+        class="filter-item action-button"
         type="primary"
         icon="el-icon-plus"
         @click="handleCreate"
@@ -22,8 +20,7 @@
         新增仓库
       </el-button>
       <el-button
-        class="filter-item"
-        style="margin-left: 10px;"
+        class="filter-item action-button"
         type="success"
         icon="el-icon-upload2"
         @click="handleImport"
@@ -32,8 +29,7 @@
         导入
       </el-button>
       <el-button
-        class="filter-item"
-        style="margin-left: 10px;"
+        class="filter-item action-button"
         type="warning"
         icon="el-icon-download"
         @click="handleExport"
@@ -50,7 +46,7 @@
       border
       fit
       highlight-current-row
-      style="width: 100%;"
+      class="w-full"
     >
       <el-table-column label="仓库编号" prop="code" align="center" width="150">
         <template slot-scope="{row}">
@@ -434,3 +430,7 @@ export default {
   }
 }
 </script>
+
+<style lang="scss" scoped>
+@import '@/styles/components/warehouse-index.scss';
+</style>

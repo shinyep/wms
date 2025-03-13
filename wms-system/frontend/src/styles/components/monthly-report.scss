@@ -1,0 +1,281 @@
+@import '../variables.scss';
+@import '../mixins.scss';
+
+/* 卡片头部按钮样式 */
+.box-card {
+  .clearfix {
+    .el-button {
+      &[style*="float: right"] {
+        float: right;
+        margin-left: 10px;
+      }
+    }
+  }
+}
+
+/* 搜索区域样式 */
+.filter-container {
+  .el-select, .el-date-picker {
+    width: 180px;
+  }
+  
+  .manual-input-btn {
+    margin-left: 5px;
+  }
+  
+  .search-input {
+    width: 300px;
+  }
+}
+
+/* 操作容器样式 */
+.operation-container {
+  .search-box {
+    .el-input {
+      width: 300px;
+    }
+  }
+}
+
+.monthly-report {
+  padding: $spacing-large;
+
+  .report-header {
+    @include flex-between;
+    padding: $spacing-base;
+
+    .header-title {
+      font-size: $font-size-large;
+      font-weight: $font-weight-bold;
+      color: $text-primary;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: $spacing-mini;
+    }
+  }
+
+  .filter-container {
+    padding-bottom: $spacing-base;
+    @include flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+    
+    .el-form-item {
+      margin-bottom: $spacing-mini;
+      margin-right: $spacing-large;
+    }
+  }
+
+  .operation-container {
+    margin-bottom: $spacing-base;
+    @include flex-between;
+    align-items: center;
+    
+    .search-box {
+      @include flex-start;
+      align-items: center;
+      
+      .search-result {
+        margin-left: $spacing-mini;
+        font-size: $font-size-small;
+        color: $text-secondary;
+      }
+    }
+  }
+
+  .el-card {
+    margin-bottom: $spacing-large;
+    
+    .el-card__header {
+      padding: $spacing-base $spacing-large;
+      background-color: $bg-light;
+      border-bottom: 1px solid $border-color-base;
+    }
+    
+    .el-card__body {
+      padding: $spacing-large;
+    }
+  }
+
+  .card-title {
+    font-size: $font-size-medium;
+    font-weight: $font-weight-bold;
+    color: $text-primary;
+  }
+
+  /* 表格样式 */
+  .el-table {
+    margin-bottom: $spacing-large;
+    table-layout: auto;
+    
+    .el-button + .el-button {
+      margin-left: $spacing-mini;
+    }
+    
+    td {
+      vertical-align: middle;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: $spacing-mini 0;
+      line-height: 1.5;
+      height: 50px;
+    }
+    
+    th {
+      background-color: $bg-light;
+      color: $text-regular;
+      font-weight: $font-weight-medium;
+      padding: $spacing-base 0;
+      height: 50px;
+    }
+    
+    .action-buttons {
+      @include flex-center;
+      flex-wrap: nowrap;
+      
+      .el-button {
+        padding: 7px 12px;
+        font-size: $font-size-small;
+      }
+    }
+  }
+
+  /* 深度选择器样式 */
+  :deep(.el-table) {
+    &__row td {
+      padding: $spacing-mini 0;
+    }
+
+    .cell {
+      padding-left: $spacing-mini;
+      padding-right: $spacing-mini;
+      font-size: $font-size-base;
+    }
+
+    th > .cell {
+      font-size: $font-size-base;
+      font-weight: $font-weight-bold;
+    }
+
+    &--striped .el-table__body tr.el-table__row--striped td {
+      background-color: $bg-lighter;
+    }
+    
+    .el-table__body tr:hover > td {
+      background-color: $bg-hover !important;
+    }
+    
+    border: 1px solid $border-color-base;
+    border-radius: $border-radius-base;
+    overflow: hidden;
+  }
+
+  /* 按钮组样式 */
+  .el-button {
+    &.is-circle + .el-button.is-circle,
+    &--mini + .el-button--mini {
+      margin-left: $spacing-mini;
+    }
+  }
+
+  /* 表单帮助文本 */
+  .form-help-text {
+    font-size: $font-size-small;
+    color: $text-secondary;
+    line-height: 1.5;
+    margin-top: $spacing-mini;
+  }
+
+  /* 对话框样式 */
+  :deep(.el-dialog) {
+    .el-dialog__header {
+      padding: $spacing-base $spacing-large;
+      border-bottom: 1px solid $border-color-light;
+    }
+    
+    .el-dialog__body {
+      padding: $spacing-large $spacing-large $spacing-mini;
+    }
+    
+    .el-dialog__footer {
+      padding: $spacing-mini $spacing-large $spacing-large;
+      border-top: 1px solid $border-color-lighter;
+    }
+  }
+
+  /* 标签页样式 */
+  :deep(.el-tabs) {
+    .el-tabs__header {
+      margin-bottom: $spacing-large;
+    }
+    
+    .el-tabs__item {
+      font-size: $font-size-base;
+      height: 40px;
+      line-height: 40px;
+    }
+    
+    .el-tabs__content {
+      overflow: visible;
+    }
+  }
+
+  /* 表单项样式 */
+  :deep(.el-form-item) {
+    margin-bottom: $spacing-large;
+    
+    .el-form-item__label {
+      font-weight: $font-weight-medium;
+    }
+    
+    .el-input__inner,
+    .el-input-number__decrease,
+    .el-input-number__increase {
+      height: 36px;
+      line-height: 36px;
+    }
+    
+    .el-input-number {
+      width: 100%;
+    }
+  }
+
+  /* 数字单元格样式 */
+  .number-cell {
+    font-family: $font-family-mono;
+    color: $color-primary;
+    font-weight: $font-weight-medium;
+
+    &:empty, &.zero-value {
+      color: $text-secondary;
+    }
+  }
+
+  /* 删除按钮样式 */
+  .delete-btn {
+    color: $color-danger;
+    
+    &:hover {
+      color: $color-danger-light;
+    }
+  }
+
+  /* 表格为空时的样式 */
+  :deep(.el-table__empty-block) {
+    min-height: 200px;
+  }
+
+  /* 响应式布局 */
+  @media screen and (max-width: 1200px) {
+    .el-button {
+      padding: 9px 15px;
+    }
+    
+    :deep(.el-table .cell) {
+      padding-left: $spacing-mini;
+      padding-right: $spacing-mini;
+    }
+  }
+} 

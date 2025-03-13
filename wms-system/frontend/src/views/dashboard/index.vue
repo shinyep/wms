@@ -3,7 +3,7 @@
     <div class="dashboard-text">欢迎 {{ name }}</div>
     
     <!-- 超级管理员账号管理入口 -->
-    <el-row v-if="isSuper" :gutter="20" style="margin-bottom: 30px;">
+    <el-row v-if="isSuper" :gutter="20" class="admin-row">
       <el-col :span="24">
         <el-alert
           title="超级管理员管理区域"
@@ -44,7 +44,7 @@
             <span>月度报表管理</span>
           </div>
           <div class="card-panel">
-            <div class="card-panel-icon-wrapper" style="background: #409EFF;">
+            <div class="card-panel-icon-wrapper blue-bg">
               <i class="el-icon-date"></i>
             </div>
             <div class="card-panel-description">
@@ -61,7 +61,7 @@
             <span>盘点功能</span>
           </div>
           <div class="card-panel">
-            <div class="card-panel-icon-wrapper" style="background: #E6A23C;">
+            <div class="card-panel-icon-wrapper orange-bg">
               <i class="el-icon-check"></i>
             </div>
             <div class="card-panel-description">
@@ -151,97 +151,5 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.dashboard {
-  &-container {
-    margin: 30px;
-  }
-  &-text {
-    font-size: 30px;
-    line-height: 46px;
-    margin-bottom: 30px;
-    color: #303133;
-    font-weight: bold;
-  }
-}
-
-.super-admin-panel {
-  display: flex;
-  align-items: center;
-  margin: 10px 0;
-}
-
-.super-admin-tip {
-  margin-left: 15px;
-  font-size: 14px;
-  color: #666;
-}
-
-.el-row {
-  margin-bottom: 20px;
-}
-
-.box-card {
-  cursor: pointer;
-  transition: all 0.3s;
-  height: 180px;
-  margin-bottom: 20px;
-  
-  &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
-
-  .card-panel {
-    height: 108px;
-    font-size: 12px;
-    position: relative;
-    overflow: hidden;
-    color: #666;
-    background: #fff;
-    
-    &:hover {
-      .card-panel-icon-wrapper {
-        transform: scale(1.1);
-      }
-    }
-
-    .card-panel-icon-wrapper {
-      float: left;
-      margin: 14px 0 0 14px;
-      padding: 16px;
-      transition: all 0.38s ease-out;
-      border-radius: 6px;
-      background: #34bfa3;
-      
-      i {
-        font-size: 32px;
-        color: #fff;
-      }
-    }
-
-    .card-panel-description {
-      float: right;
-      font-weight: bold;
-      margin: 26px 15px 0 0;
-      
-      .card-panel-text {
-        line-height: 18px;
-        color: rgba(0, 0, 0, 0.45);
-        font-size: 16px;
-        margin-bottom: 12px;
-      }
-      
-      .card-panel-num {
-        font-size: 22px;
-        color: #666;
-      }
-    }
-  }
-}
-
-.el-card__header {
-  font-size: 16px;
-  font-weight: bold;
-  color: #303133;
-}
+@import '@/styles/components/dashboard.scss';
 </style> 

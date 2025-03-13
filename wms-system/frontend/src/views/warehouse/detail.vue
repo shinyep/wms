@@ -10,7 +10,7 @@
         <span>仓库基本信息</span>
         <div style="float: right;">
           <!-- 备份按钮组 -->
-          <el-button-group style="margin-right: 10px;">
+          <el-button-group class="margin-right-10">
             <el-button
               type="primary"
               size="small"
@@ -47,7 +47,7 @@
             type="warning"
             size="small"
             icon="el-icon-download"
-            style="margin-left: 10px;"
+            class="margin-left-10"
             @click="directExport"
             title="直接导出当前表格数据，无需API请求"
           >

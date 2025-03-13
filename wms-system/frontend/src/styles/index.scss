@@ -1,0 +1,16 @@
+// 导入基础样式
+@import './variables.scss';
+@import './mixins.scss';
+@import './common.scss';
+
+// 导入组件样式
+@import './components/warehouse.scss';
+@import './components/inventory.scss';
+@import './components/transaction.scss';
+@import './components/report.scss';
+@import './components/detail.scss';
+@import './components/monthly-report.scss';
+@import './components/area.scss';
+@import './components/warehouse-index.scss';
+@import './components/login.scss';
+@import './components/dashboard.scss'; 
