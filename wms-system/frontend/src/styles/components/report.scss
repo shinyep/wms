@@ -1,0 +1,112 @@
+@import '../variables.scss';
+@import '../mixins.scss';
+
+// 报表列表页样式
+.report-list {
+  .filter-container {
+    @include flex-between;
+    flex-wrap: wrap;
+    margin-bottom: $spacing-large;
+
+    .filter-item {
+      margin-right: $spacing-small;
+      margin-bottom: $spacing-small;
+    }
+  }
+
+  .table-container {
+    margin-top: $spacing-base;
+  }
+
+  .pagination-container {
+    margin-top: $spacing-large;
+    text-align: right;
+  }
+}
+
+// 月度报表样式
+.monthly-report {
+  .report-header {
+    @include flex-between;
+    margin-bottom: $spacing-large;
+  }
+
+  .report-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-small;
+    margin-bottom: $spacing-large;
+  }
+
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: $spacing-large;
+    margin-bottom: $spacing-large;
+
+    .summary-card {
+      padding: $spacing-base;
+      border-radius: $border-radius-base;
+      @include box-shadow;
+
+      .card-title {
+        color: $text-secondary;
+        font-size: $font-size-small;
+      }
+
+      .card-value {
+        margin-top: $spacing-mini;
+        font-size: $font-size-large;
+        color: $text-primary;
+      }
+
+      .card-trend {
+        margin-top: $spacing-mini;
+        font-size: $font-size-small;
+
+        &.up { color: $color-success; }
+        &.down { color: $color-danger; }
+      }
+    }
+  }
+
+  .chart-section {
+    margin-bottom: $spacing-large;
+
+    .chart-title {
+      margin-bottom: $spacing-base;
+      font-size: $font-size-large;
+      color: $text-primary;
+    }
+
+    .chart-container {
+      height: 300px;
+    }
+  }
+
+  .table-section {
+    margin-top: $spacing-large;
+
+    .table-title {
+      margin-bottom: $spacing-base;
+      font-size: $font-size-large;
+      color: $text-primary;
+    }
+  }
+}
+
+// 导出报表样式
+.export-form {
+  width: 400px;
+  margin: 0 auto;
+  padding: $spacing-large;
+
+  .form-footer {
+    margin-top: $spacing-xl;
+    text-align: right;
+
+    .el-button {
+      margin-left: $spacing-small;
+    }
+  }
+} 

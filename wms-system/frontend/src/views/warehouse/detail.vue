@@ -10,7 +10,7 @@
         <span>仓库基本信息</span>
         <div style="float: right;">
           <!-- 备份按钮组 -->
-          <el-button-group style="margin-right: 10px;">
+          <el-button-group class="margin-right-10">
             <el-button
               type="primary"
               size="small"
@@ -47,7 +47,7 @@
             type="warning"
             size="small"
             icon="el-icon-download"
-            style="margin-left: 10px;"
+            class="margin-left-10"
             @click="directExport"
             title="直接导出当前表格数据，无需API请求"
           >
@@ -148,6 +148,17 @@
           @click="handleUpdateInitialStock"
         >
           更新期初库存
+        </el-button>
+        
+        <!-- 添加特殊按钮用于删除重复记录 -->
+        <el-button
+          type="danger"
+          size="small"
+          icon="el-icon-delete"
+          style="float: right; margin-right: 10px;"
+          @click="handleDeleteDuplicates"
+        >
+          清理重复记录
         </el-button>
       </div>
       
@@ -614,7 +625,7 @@
 import axios from 'axios'
 import request from '@/utils/request'
 import { getWarehouse, importExcel, exportTemplate, exportWarehouseBackup, restoreWarehouseBackup } from '@/api/warehouse'
-import { getMonthlyReport, updateMonthlyReport, updateInitialStock } from '@/api/report'
+import { getMonthlyReport, updateMonthlyReport, createAutoMonthlyReport, deleteRecord } from '@/api/report'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
 import moment from 'moment'
@@ -722,7 +733,7 @@ export default {
         inventory: []
       },
       backupTime: null,
-      handlerList: ['林福远', '黄伟恒', '叶平', '李海成', '梁立金', '王秋华', '黄善智', '黄善财', '黄家佳', '张录彬', '韦永强', '李思达'],
+      handlerList: ['林福远', '黄伟恒', '叶平', '李海成', '梁立金', '王秋华', '黄善智', '黄善财', '黄家佳', '张录彬', '韦永强', '李思达','刘明','赵福驱','钟秀贞','庞丽萍','祝总'],
       backupLoading: false,
       restoreLoading: false,
       lastBackupTime: null,
@@ -978,8 +989,10 @@ export default {
             // 加载数据后立即创建备份
             this.createDataBackup()
             
-            // 加载数据后立即强制执行一次统计更新
+            // 确保所有记录都有唯一ID
             this.$nextTick(() => {
+              this.ensureRecordIds()
+              
               console.log('数据加载完成，立即执行统计更新...')
               this.updateInventoryStatistics(false) // 传入false参数表示不显示通知
               
@@ -1190,69 +1203,169 @@ export default {
         // 在删除前创建完整备份
         this.createDataBackup()
         
-        if (type === 'inventory') {
-          // 记录删除前的库存数量
-          const beforeCount = this.inventoryList.length
-          
-          // 保存被删除的记录到历史记录中
-          const deletedItem = JSON.parse(JSON.stringify(this.inventoryList[index]))
-          this.deleteHistory.push({
-            type: 'inventory',
-            item: deletedItem,
-            timestamp: new Date().getTime()
-          })
-          this.lastDeleteTime = new Date().getTime()
-          
-          // 记录详细信息用于调试
-          console.log(`准备删除库存项: 索引=${index}, 品项=${deletedItem.品项}, 规格=${deletedItem['规格/型号']}`)
-          
-          // 只删除当前选中的记录
-          this.inventoryList.splice(index, 1)
-          
-          // 记录删除后的库存数量
-          const afterCount = this.inventoryList.length
-          console.log(`删除完成: 删除前=${beforeCount}条, 删除后=${afterCount}条, 差异=${beforeCount - afterCount}条`)
-          
-          // 显示撤销选项
-          const h = this.$createElement
-          this.$notify({
-            title: '删除成功',
-            message: h('div', null, [
-              h('span', null, '记录已删除 '),
-              h('el-button', {
-                props: {
-                  type: 'text',
-                  size: 'mini'
-                },
-                on: {
-                  click: () => this.handleUndo()
-                }
-              }, '撤销')
-            ]),
-            type: 'success',
-            duration: 5000
-          })
-        } else if (type === 'inbound') {
-          this.inboundList.splice(index, 1)
-          this.$message.success('删除成功')
-        } else if (type === 'outbound') {
-          this.outboundList.splice(index, 1)
-          this.$message.success('删除成功')
+        // 记录删除前的数据状态
+        const beforeDeleteState = {
+          inbound: [...this.inboundList],
+          outbound: [...this.outboundList],
+          inventory: [...this.inventoryList]
         }
         
-        // 更新库存统计
-        this.updateInventoryStatistics(false)
+        // 获取删除记录的详细信息以便日志记录
+        const recordInfo = {
+          type,
+          id: row.id || '',
+          index,
+          品项: row.品项 || '',
+          规格型号: row['规格/型号'] || '',
+          日期: type === 'inventory' ? '' : (row.日期 || '')
+        }
+        console.log(`准备删除记录: `, recordInfo)
         
-        // 保存更改
-        this.$nextTick(() => {
-          this.saveReportData(true)
+        // 准备删除请求参数
+          const params = {
+            warehouse_id: this.$route.params.id,
+            month: this.selectedMonth,
+          record_type: type,
+          record_id: row.id
+        }
+        
+        // 检查记录ID
+        if (!row.id) {
+          console.error('记录没有ID，无法删除')
+          this.$message.error('删除失败: 记录没有ID')
+          return
+        }
+        
+          console.log('删除请求参数:', params)
+          
+        // 显示加载状态
+        const loading = this.$loading({
+          lock: true,
+          text: '正在删除记录并清理关联数据...',
+          spinner: 'el-icon-loading',
+          background: 'rgba(0, 0, 0, 0.7)'
         })
-      } catch (error) {
-        console.error('删除操作失败:', error)
-        this.$message.error('删除失败: ' + (error.message || '未知错误'))
         
+        // 使用API函数发送请求
+          deleteRecord(params)
+            .then(async response => {
+              console.log('删除成功响应:', response)
+              
+            // 从本地列表中删除
+            if (type === 'inventory') {
+              this.inventoryList.splice(index, 1)
+            } else if (type === 'inbound') {
+              this.inboundList.splice(index, 1)
+            } else if (type === 'outbound') {
+              this.outboundList.splice(index, 1)
+            }
+            
+            // 获取删除的关联记录信息
+            const relatedDeleted = response.data?.related_deleted || {}
+            
+            // 组织成功消息
+            let successMessage = `删除成功！`
+            if (type === 'inventory') {
+              successMessage += `同时删除了${relatedDeleted.inbound || 0}条入库记录、${relatedDeleted.outbound || 0}条出库记录`
+            }
+            if (relatedDeleted.transactions) {
+              successMessage += `${type === 'inventory' ? '和' : '同时删除了'}${relatedDeleted.transactions || 0}条事务记录`
+            }
+            
+            this.$message.success(successMessage)
+            
+            // 强制等待以确保后端处理完成
+              await new Promise(resolve => setTimeout(resolve, 1000))
+              
+                // 清除旧数据
+                this.inboundList = []
+                this.outboundList = []
+                this.inventoryList = []
+                
+                // 重新获取最新数据
+            try {
+                await this.fetchReportData()
+                
+              // 更新统计和强制刷新UI
+                this.$nextTick(() => {
+                  this.updateInventoryStatistics(false)
+                  this.forceSyncInventoryTable()
+                  
+                // 检查是否真的删除成功
+                const stillExists = this.checkRecordStillExists(type, row)
+                if (stillExists) {
+                  console.warn(`记录可能仍然存在，删除可能未完全生效: `, recordInfo)
+                  this.$message.warning('删除操作可能未完全生效，请尝试再次删除或刷新页面')
+                  } else {
+                  console.log(`记录已成功删除: `, recordInfo)
+                  }
+                })
+              } catch (fetchError) {
+                console.error('刷新数据失败:', fetchError)
+                this.$message.error('刷新数据失败，请手动刷新页面')
+            } finally {
+              loading.close()
+              }
+            })
+            .catch(error => {
+            loading.close()
+              console.error('删除操作失败:', error)
+              this.$message.error('删除失败: ' + (error.message || '未知错误'))
+              
+              // 恢复到删除前的状态
+            if (type === 'inventory') {
+              this.inventoryList = beforeDeleteState.inventory
+        } else if (type === 'inbound') {
+              this.inboundList = beforeDeleteState.inbound
+            } else if (type === 'outbound') {
+              this.outboundList = beforeDeleteState.outbound
+            }
+          })
+      } catch (error) {
+              console.error('删除操作失败:', error)
+              this.$message.error('删除失败: ' + (error.message || '未知错误'))
+              
         // 发生错误时尝试从备份恢复
         this.restoreFromBackup()
+      }
+    },
+    
+    // 检查记录是否仍然存在
+    checkRecordStillExists(type, originalRecord) {
+      try {
+        const itemName = originalRecord.品项
+        const itemSpec = originalRecord['规格/型号']
+        
+        if (!itemName) return false
+        
+        let targetList = []
+        if (type === 'inventory') {
+          targetList = this.inventoryList
+        } else if (type === 'inbound') {
+          targetList = this.inboundList
+        } else if (type === 'outbound') {
+          targetList = this.outboundList
+        }
+        
+        // 检查是否有匹配的记录
+        return targetList.some(item => {
+          // 检查ID匹配
+          if (item.id === originalRecord.id) return true
+          
+          // 检查品项和规格匹配
+          if (item.品项 === itemName && item['规格/型号'] === itemSpec) {
+            // 对于入库和出库，还需要检查日期
+            if (type !== 'inventory') {
+              return item.日期 === originalRecord.日期
+            }
+            return true
+          }
+          
+          return false
+        })
+      } catch (error) {
+        console.error('检查记录是否存在时出错:', error)
+        return false
       }
     },
 
@@ -1449,14 +1562,48 @@ export default {
           this.currentRecord.库存 = Number(this.currentRecord.期初库存) + Number(this.currentRecord.累计入库) - Number(this.currentRecord.累计出库)
           this.currentRecord.库存金额 = this.currentRecord.库存 * this.currentRecord.单价
           
+          // 检查是否存在相同品项和规格的记录
+          const itemName = this.currentRecord.品项?.trim() || ''
+          const spec = this.currentRecord['规格/型号']?.trim() || ''
+          const existingIndex = this.inventoryList.findIndex(item => {
+            const currentItemName = item.品项?.trim() || ''
+            const currentSpec = item['规格/型号']?.trim() || ''
+            return currentItemName === itemName && 
+                   currentSpec === spec && 
+                   this.currentIndex !== this.inventoryList.indexOf(item) // 排除当前编辑的记录
+          })
+
+          if (existingIndex !== -1 && this.dialogStatus === 'create') {
+            // 如果是新建操作且存在重复记录，提示用户
+            this.$message.warning('已存在相同品项和规格的记录，请检查后重试')
+            return false
+          }
+
           if (this.dialogStatus === 'create') {
+            // 新建记录时，确保添加唯一ID
+            this.currentRecord.id = 'inv_' + Date.now() + '_' + Math.floor(Math.random() * 10000)
             this.inventoryList.push({ ...this.currentRecord })
           } else {
+            // 更新记录时，保持原有ID
+            const originalRecord = this.inventoryList[this.currentIndex]
+            this.currentRecord.id = originalRecord.id || ('inv_' + Date.now() + '_' + Math.floor(Math.random() * 10000))
             this.inventoryList.splice(this.currentIndex, 1, { ...this.currentRecord })
           }
           
-          this.saveReportData()
-          this.inventoryDialogVisible = false
+          // 保存数据并更新统计
+          this.saveReportData(true).then(() => {
+            this.$message.success(this.dialogStatus === 'create' ? '添加成功' : '更新成功')
+            this.inventoryDialogVisible = false
+            
+            // 强制更新库存统计和表格显示
+            this.$nextTick(() => {
+              this.updateInventoryStatistics(false)
+              this.forceSyncInventoryTable()
+            })
+          }).catch(error => {
+            console.error('保存库存数据失败:', error)
+            this.$message.error('保存失败: ' + (error.message || '未知错误'))
+          })
         } else {
           return false
         }
@@ -3078,7 +3225,109 @@ export default {
         return '完成'
       }
       return `${percentage}%`
-    }
+    },
+    // 确保所有记录都有唯一ID
+    ensureRecordIds() {
+      console.log('确保所有记录都有唯一ID...')
+      
+      // 为库存记录添加ID
+      this.inventoryList.forEach((item, index) => {
+        if (!item.id) {
+          item.id = `inv_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`
+          console.log(`为库存记录[${index}]添加ID: ${item.id}`)
+        }
+      })
+      
+      // 为入库记录添加ID
+      this.inboundList.forEach((item, index) => {
+        if (!item.id) {
+          item.id = `in_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`
+          console.log(`为入库记录[${index}]添加ID: ${item.id}`)
+        }
+      })
+      
+      // 为出库记录添加ID
+      this.outboundList.forEach((item, index) => {
+        if (!item.id) {
+          item.id = `out_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`
+          console.log(`为出库记录[${index}]添加ID: ${item.id}`)
+        }
+      })
+      
+      // 保存更改
+      this.saveReportData(true)
+        .then(() => {
+          console.log('添加ID后成功保存数据')
+        })
+        .catch(error => {
+          console.error('添加ID后保存数据失败:', error)
+        })
+    },
+    // 添加一个特殊的按钮，用于调试和修复
+    handleDeleteDuplicates() {
+      try {
+        console.log('开始删除重复记录...')
+        
+        // 记录删除前的数据量
+        const beforeCount = {
+          inventory: this.inventoryList.length,
+          inbound: this.inboundList.length,
+          outbound: this.outboundList.length
+        }
+        
+        // 创建备份
+        this.createDataBackup()
+        
+        // 使用Map记录已经存在的品项和规格组合
+        const uniqueInventory = new Map()
+        const newInventoryList = []
+        
+        // 处理库存数据
+        this.inventoryList.forEach(item => {
+          if (!item.品项 || !item['规格/型号']) return // 跳过无效记录
+          
+          const key = `${item.品项}|${item['规格/型号']}`
+          
+          if (!uniqueInventory.has(key)) {
+            // 确保有ID
+            if (!item.id) {
+              item.id = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+            }
+            uniqueInventory.set(key, item)
+            newInventoryList.push(item)
+          } else {
+            console.log(`发现重复记录: ${key}`)
+          }
+        })
+        
+        // 更新库存列表
+        this.inventoryList = newInventoryList
+        
+        // 记录删除后的数据量
+        const afterCount = {
+          inventory: this.inventoryList.length,
+          inbound: this.inboundList.length,
+          outbound: this.outboundList.length
+        }
+        
+        console.log('删除重复记录完成，删除前:', beforeCount, '删除后:', afterCount)
+        
+        // 保存更改
+        this.saveReportData(true).then(() => {
+          this.$message.success(`处理完成，删除了 ${beforeCount.inventory - afterCount.inventory} 条重复记录`)
+          
+          // 重新获取数据
+          this.fetchReportData()
+        }).catch(error => {
+          console.error('保存时出错:', error)
+          this.$message.error('保存失败: ' + (error.message || '未知错误'))
+        })
+        
+      } catch (error) {
+        console.error('删除重复记录失败:', error)
+        this.$message.error('删除重复记录失败: ' + (error.message || '未知错误'))
+      }
+    },
   },
   computed: {
     filteredInboundList() {

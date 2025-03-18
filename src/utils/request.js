@@ -2,6 +2,7 @@ import axios from 'axios'
 import { MessageBox, Message } from 'element-ui'
 import store from '@/store'
 import { getToken } from '@/utils/auth'
+import Cookies from 'js-cookie'
 
 // 创建axios实例
 const service = axios.create({
@@ -17,6 +18,18 @@ service.interceptors.request.use(
       // 让每个请求携带token
       config.headers['Authorization'] = 'Bearer ' + getToken()
     }
+    
+    // 获取CSRF令牌并添加到请求头中（对POST请求特别重要）
+    const csrftoken = Cookies.get('csrftoken')
+    if (csrftoken) {
+      config.headers['X-CSRFToken'] = csrftoken
+    }
+    
+    // 确保登录请求的Content-Type正确
+    if (config.url === '/user/login/' && config.method === 'post') {
+      config.headers['Content-Type'] = 'application/json'
+    }
+    
     return config
   },
   error => {

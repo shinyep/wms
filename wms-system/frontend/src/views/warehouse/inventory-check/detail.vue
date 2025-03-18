@@ -125,7 +125,7 @@
         :total="total"
         :page.sync="listQuery.page"
         :limit.sync="listQuery.limit"
-        @pagination="getList" />
+        @pagination="getCheckRecords" />
     </el-card>
   </div>
 </template>
@@ -133,6 +133,7 @@
 <script>
 import CountTo from 'vue-count-to'
 import Pagination from '@/components/Pagination'
+import { getInventoryCheckDetail, getCheckItems, getCheckStatistics } from '@/api/inventory'
 
 export default {
   name: 'InventoryCheckDetail',
@@ -169,61 +170,63 @@ export default {
   },
   created() {
     this.getCheckInfo()
-    this.getStatistics()
-    this.getList()
+    this.getCheckStatistics()
+    this.getCheckRecords()
   },
   methods: {
     goBack() {
       this.$router.push('/warehouse/inventory-check')
     },
     getCheckInfo() {
-      // 模拟获取盘点信息
-      this.checkInfo = {
-        checkNo: this.checkNo,
-        checkType: '全面盘点',
-        checkArea: 'A区-A1货架',
-        manager: '张三',
-        startTime: '2024-03-09 10:00:00',
-        endTime: '2024-03-09 11:30:00'
-      }
-    },
-    getStatistics() {
-      // 模拟获取统计数据
-      this.statistics = {
-        totalItems: 100,
-        matchItems: 80,
-        profitItems: 10,
-        lossItems: 10
-      }
-    },
-    getList() {
       this.listLoading = true
-      // 模拟获取盘点明细
-      setTimeout(() => {
-        this.detailList = [
-          {
-            code: 'SP001',
-            name: '测试商品1',
-            spec: '规格1',
-            systemQuantity: 100,
-            actualQuantity: 98,
-            diff: -2,
-            checkTime: '2024-03-09 10:30:00'
-          }
-        ]
-        this.total = this.detailList.length
+      getInventoryCheckDetail(this.checkNo).then(response => {
+        this.checkInfo = response.data
         this.listLoading = false
-      }, 500)
+      }).catch(error => {
+        this.listLoading = false
+        this.$message.error('获取盘点信息失败: ' + (error.message || '未知错误'))
+      })
+    },
+    getCheckStatistics() {
+      getCheckStatistics(this.checkNo).then(response => {
+        this.statistics = response.data || {
+          totalItems: 0,
+          matchItems: 0,
+          profitItems: 0,
+          lossItems: 0
+        }
+      }).catch(error => {
+        this.$message.error('获取盘点统计数据失败: ' + (error.message || '未知错误'))
+      })
+    },
+    getCheckRecords() {
+      this.listLoading = true
+      const params = {
+        page: this.listQuery.page,
+        limit: this.listQuery.limit,
+        diff_type: this.listQuery.diffType
+      }
+      
+      getCheckItems(this.checkNo, params).then(response => {
+        this.detailList = response.data.results || []
+        this.total = response.data.count || 0
+        this.listLoading = false
+      }).catch(error => {
+        this.listLoading = false
+        this.$message.error('获取盘点详情失败: ' + (error.message || '未知错误'))
+      })
     },
     handleFilter() {
       this.listQuery.page = 1
-      this.getList()
+      this.getCheckRecords()
     },
     handleExport() {
       this.$message({
         message: '报告导出中...',
         type: 'success'
       })
+      
+      window.open(`/api/v1/inventory-check/${this.checkNo}/export/`, '_blank')
     },
     getDiffClass(diff) {
       if (diff > 0) return 'text-success'

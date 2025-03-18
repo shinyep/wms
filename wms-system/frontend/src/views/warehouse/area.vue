@@ -1,14 +1,14 @@
 <template>
-  <div class="app-container">
+  <div class="app-container area-container">
     <div class="filter-container">
-      <el-select v-model="listQuery.warehouse" placeholder="选择仓库" clearable style="width: 200px" class="filter-item">
+      <el-select v-model="listQuery.warehouse" placeholder="选择仓库" clearable class="filter-item">
         <el-option v-for="item in warehouseOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
-      <el-input v-model="listQuery.name" placeholder="库区名称" style="width: 200px;" class="filter-item" @keyup.enter.native="handleFilter" />
+      <el-input v-model="listQuery.name" placeholder="库区名称" class="filter-item" @keyup.enter.native="handleFilter" />
       <el-button v-waves class="filter-item" type="primary" icon="el-icon-search" @click="handleFilter">
         搜索
       </el-button>
-      <el-button class="filter-item" style="margin-left: 10px;" type="primary" icon="el-icon-plus" @click="handleCreate">
+      <el-button class="filter-item add-button" type="primary" icon="el-icon-plus" @click="handleCreate">
         添加
       </el-button>
     </div>
@@ -20,7 +20,7 @@
       border
       fit
       highlight-current-row
-      style="width: 100%;"
+      class="w-full"
     >
       <el-table-column label="ID" prop="id" align="center" width="80">
         <template slot-scope="{row}">
@@ -69,7 +69,7 @@
     <pagination v-show="total>0" :total="total" :page.sync="listQuery.page" :limit.sync="listQuery.limit" @pagination="getList" />
 
     <el-dialog :title="textMap[dialogStatus]" :visible.sync="dialogFormVisible">
-      <el-form ref="dataForm" :rules="rules" :model="temp" label-position="left" label-width="100px" style="width: 400px; margin-left:50px;">
+      <el-form ref="dataForm" :rules="rules" :model="temp" label-position="left" label-width="100px" class="form-container">
         <el-form-item label="所属仓库" prop="warehouse">
           <el-select v-model="temp.warehouse" class="filter-item" placeholder="请选择">
             <el-option v-for="item in warehouseOptions" :key="item.value" :label="item.label" :value="item.value" />
@@ -272,4 +272,8 @@ export default {
     }
   }
 }
-</script> 
+</script>
+
+<style lang="scss" scoped>
+@import '@/styles/components/area.scss';
+</style> 

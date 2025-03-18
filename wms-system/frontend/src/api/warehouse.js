@@ -10,6 +10,11 @@ export function fetchList(query) {
   })
 }
 
+// 为兼容性添加getWarehouseList作为fetchList的别名
+export function getWarehouseList(query) {
+  return fetchList(query)
+}
+
 // 创建仓库
 export function createWarehouse(data) {
   return request({

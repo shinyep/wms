@@ -18,5 +18,8 @@ router.register(r'', WarehouseViewSet, basename='warehouse')
 
 # 自定义路由
 urlpatterns = [
+    # 删除记录路径 - 显式指定精确的URL路径
+    path('delete_record/', WarehouseViewSet.as_view({'delete': 'delete_record'}), name='delete-record'),
+    path('delete-record/', WarehouseViewSet.as_view({'delete': 'delete_record'}), name='delete-record-dash'),  # 支持dash格式
     path('', include(router.urls)),
 ] 

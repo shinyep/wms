@@ -2,7 +2,7 @@ from rest_framework import serializers
 from apps.warehouse.serializers import WarehouseSerializer, WarehouseLocationSerializer
 from apps.product.serializers import ProductSerializer
 from apps.user.serializers import UserSerializer
-from .models import Inventory, Transaction
+from .models import Inventory, Transaction, StockCheck, StockCheckItem
 
 class TransactionSerializer(serializers.ModelSerializer):
     warehouse = WarehouseSerializer(read_only=True)
@@ -88,4 +88,81 @@ class InventorySerializer(serializers.ModelSerializer):
             '单价': data['unit_price'],
             '库存金额': data['amount'],
             '状态': '启用' if data['is_active'] else '禁用'
-        } 
+        }
+
+class StockCheckItemSerializer(serializers.ModelSerializer):
+    """库存盘点明细序列化器"""
+    product = ProductSerializer(read_only=True) 
+    location = WarehouseLocationSerializer(read_only=True)
+    
+    # 添加自定义字段显示
+    display_status = serializers.SerializerMethodField()
+    
+    def get_display_status(self, obj):
+        status_map = {
+            'pending': '待盘点',
+            'checked': '已盘点',
+            'adjusted': '已调整'
+        }
+        return status_map.get(obj.status, obj.status)
+    
+    class Meta:
+        model = StockCheckItem
+        fields = [
+            'id', 'stock_check', 'product', 'location', 'batch_number',
+            'system_quantity', 'actual_quantity', 'difference', 'status',
+            'remark', 'check_time', 'display_status'
+        ]
+        read_only_fields = ['check_time', 'difference']
+    
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return {
+            'id': data['id'],
+            '商品': data['product']['name'] if data['product'] else '',
+            '规格': data['product']['spec'] if data['product'] else '',
+            '库位': data['location']['code'] if data['location'] else '未分配',
+            '系统数量': data['system_quantity'],
+            '实际数量': data['actual_quantity'],
+            '差异数量': data['difference'],
+            '状态': data['display_status'],
+            '备注': data['remark'] or '',
+            '盘点时间': data['check_time'] or ''
+        }
+
+class StockCheckSerializer(serializers.ModelSerializer):
+    """库存盘点单序列化器"""
+    warehouse = WarehouseSerializer(read_only=True)
+    creator = UserSerializer(read_only=True)
+    checker = UserSerializer(read_only=True)
+    items = StockCheckItemSerializer(many=True, read_only=True)
+    
+    # 添加自定义字段显示
+    display_status = serializers.SerializerMethodField()
+    display_check_type = serializers.SerializerMethodField()
+    
+    def get_display_status(self, obj):
+        status_map = {
+            'draft': '草稿',
+            'in_progress': '进行中',
+            'completed': '已完成',
+            'cancelled': '已取消'
+        }
+        return status_map.get(obj.status, obj.status)
+    
+    def get_display_check_type(self, obj):
+        type_map = {
+            'full': '全面盘点',
+            'partial': '部分盘点'
+        }
+        return type_map.get(obj.check_type, obj.check_type)
+    
+    class Meta:
+        model = StockCheck
+        fields = [
+            'id', 'check_code', 'warehouse', 'check_type', 'status',
+            'start_time', 'end_time', 'creator', 'checker', 'remark',
+            'created_time', 'updated_time', 'items', 'display_status',
+            'display_check_type'
+        ]
+        read_only_fields = ['created_time', 'updated_time', 'check_code']

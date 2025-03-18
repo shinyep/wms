@@ -1,0 +1,107 @@
+@import '../variables.scss';
+@import '../mixins.scss';
+
+.dashboard-container {
+  margin: 30px;
+  
+  .admin-row {
+    margin-bottom: 30px;
+  }
+  
+  .dashboard-text {
+    font-size: 30px;
+    line-height: 46px;
+    margin-bottom: 30px;
+    color: #303133;
+    font-weight: bold;
+  }
+  
+  .super-admin-panel {
+    display: flex;
+    align-items: center;
+    margin: 10px 0;
+  }
+  
+  .super-admin-tip {
+    margin-left: 15px;
+    font-size: 14px;
+    color: #666;
+  }
+  
+  .el-row {
+    margin-bottom: 20px;
+  }
+  
+  .box-card {
+    cursor: pointer;
+    transition: all 0.3s;
+    height: 180px;
+    margin-bottom: 20px;
+    
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+  
+    .card-panel {
+      height: 108px;
+      font-size: 12px;
+      position: relative;
+      overflow: hidden;
+      color: #666;
+      background: #fff;
+      
+      &:hover {
+        .card-panel-icon-wrapper {
+          transform: scale(1.1);
+        }
+      }
+  
+      .card-panel-icon-wrapper {
+        float: left;
+        margin: 14px 0 0 14px;
+        padding: 16px;
+        transition: all 0.38s ease-out;
+        border-radius: 6px;
+        background: #34bfa3;
+        
+        &.blue-bg {
+          background: #409EFF;
+        }
+        
+        &.orange-bg {
+          background: #E6A23C;
+        }
+        
+        i {
+          font-size: 32px;
+          color: #fff;
+        }
+      }
+  
+      .card-panel-description {
+        float: right;
+        font-weight: bold;
+        margin: 26px 15px 0 0;
+        
+        .card-panel-text {
+          line-height: 18px;
+          color: rgba(0, 0, 0, 0.45);
+          font-size: 16px;
+          margin-bottom: 12px;
+        }
+        
+        .card-panel-num {
+          font-size: 22px;
+          color: #666;
+        }
+      }
+    }
+  }
+  
+  .el-card__header {
+    font-size: 16px;
+    font-weight: bold;
+    color: #303133;
+  }
+} 
