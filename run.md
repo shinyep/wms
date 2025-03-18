@@ -7,3 +7,5 @@ cd E:\cangku\wms-system\frontend
 npm run serve
 
 npm run dev
+
+.venv\Scripts\Activate.ps1

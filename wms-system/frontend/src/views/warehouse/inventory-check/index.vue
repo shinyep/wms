@@ -98,11 +98,29 @@
           </el-select>
         </el-form-item>
 
+        <el-form-item label="选择仓库" prop="warehouseId" v-if="temp.checkType === '全面盘点'">
+          <el-select v-model="temp.warehouseId" placeholder="请选择仓库" @change="handleWarehouseChange">
+            <el-option
+              v-for="item in warehouseOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id">
+            </el-option>
+          </el-select>
+        </el-form-item>
+
         <el-form-item label="盘点区域" prop="checkArea">
           <el-cascader
             v-model="temp.checkArea"
             :options="areaOptions"
-            :props="{ checkStrictly: true }"
+            :props="{ 
+              checkStrictly: true,
+              value: 'id',
+              label: 'name',
+              children: 'children'
+            }"
+            :disabled="!temp.warehouseId"
+            placeholder="请先选择仓库"
             clearable />
         </el-form-item>
 
@@ -129,6 +147,33 @@
 
 <script>
 import Pagination from '@/components/Pagination'
+import { getInventoryCheckList, createInventoryCheck } from '@/api/inventory'
+import { getWarehouseList } from '@/api/warehouse'
+import { getWarehouseAreaTree } from '@/api/inventory'
+
+// 添加polyfill用于兼容老浏览器
+function generateUUID() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// 检查crypto对象是否存在并提供polyfill
+if (typeof window.crypto === 'undefined') {
+  window.crypto = {
+    randomUUID: generateUUID,
+    getRandomValues: function(arr) {
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = Math.floor(Math.random() * 256);
+      }
+      return arr;
+    }
+  };
+} else if (typeof window.crypto.randomUUID === 'undefined') {
+  window.crypto.randomUUID = generateUUID;
+}
 
 export default {
   name: 'InventoryCheck',
@@ -145,37 +190,25 @@ export default {
       dialogFormVisible: false,
       temp: {
         checkType: '全面盘点',
+        warehouseId: '',
         checkArea: [],
         manager: '',
         remark: ''
       },
       rules: {
         checkType: [{ required: true, message: '请选择盘点类型', trigger: 'change' }],
+        warehouseId: [{ required: true, message: '请选择仓库', trigger: 'change' }],
         checkArea: [{ required: true, message: '请选择盘点区域', trigger: 'change' }],
         manager: [{ required: true, message: '请输入负责人', trigger: 'blur' }]
       },
-      areaOptions: [
-        {
-          value: 'A区',
-          label: 'A区',
-          children: [
-            { value: 'A1', label: 'A1货架' },
-            { value: 'A2', label: 'A2货架' }
-          ]
-        },
-        {
-          value: 'B区',
-          label: 'B区',
-          children: [
-            { value: 'B1', label: 'B1货架' },
-            { value: 'B2', label: 'B2货架' }
-          ]
-        }
-      ]
+      warehouseOptions: [],
+      areaOptions: [],
+      areaLoading: false
     }
   },
   created() {
     this.getList()
+    this.getWarehouses()
   },
   methods: {
     statusTagType(status) {
@@ -189,31 +222,45 @@ export default {
     },
     getList() {
       this.listLoading = true
-      // 这里应该调用后端API获取盘点任务列表
-      // 模拟数据
-      setTimeout(() => {
-        this.checkList = [
-          {
-            checkNo: 'PD' + new Date().getTime(),
-            checkType: '全面盘点',
-            status: '未开始',
-            startTime: new Date().toLocaleString('zh-CN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit'
-            }).replace(/\//g, '-'),
-            manager: '张三',
-            progress: 0
-          }
-        ]
-        this.total = this.checkList.length
+      getInventoryCheckList(this.listQuery).then(response => {
+        this.checkList = response.data.results || []
+        this.total = response.data.count || 0
         this.listLoading = false
-      }, 500)
+      }).catch(() => {
+        this.listLoading = false
+        this.checkList = []
+        this.total = 0
+      })
+    },
+    getWarehouses() {
+      getWarehouseList().then(response => {
+        this.warehouseOptions = response.data.results || []
+      }).catch(() => {
+        this.$message.error('获取仓库列表失败')
+      })
+    },
+    handleWarehouseChange(warehouseId) {
+      this.temp.checkArea = []
+      this.areaOptions = []
+      this.areaLoading = true
+      
+      getWarehouseAreaTree(warehouseId).then(response => {
+        this.areaOptions = response.data || []
+        this.areaLoading = false
+      }).catch(() => {
+        this.areaLoading = false
+        this.$message.error('获取仓库区域结构失败')
+      })
     },
     handleCreateCheck() {
       this.dialogFormVisible = true
+      this.temp = {
+        checkType: '全面盘点',
+        warehouseId: '',
+        checkArea: [],
+        manager: '',
+        remark: ''
+      }
       this.$nextTick(() => {
         this.$refs['dataForm'].clearValidate()
       })
@@ -221,14 +268,33 @@ export default {
     createData() {
       this.$refs['dataForm'].validate((valid) => {
         if (valid) {
-          // 这里应该调用后端API创建盘点任务
           const tempData = Object.assign({}, this.temp)
-          this.dialogFormVisible = false
-          this.$message({
-            type: 'success',
-            message: '创建成功'
+          
+          // 处理级联选择器的数据
+          const areaData = {
+            warehouseId: tempData.warehouseId,
+            areaId: typeof tempData.checkArea[0] === 'object' ? tempData.checkArea[0].id : tempData.checkArea[0],
+            shelfId: tempData.checkArea.length > 1 ? 
+              (typeof tempData.checkArea[1] === 'object' ? tempData.checkArea[1].id : tempData.checkArea[1]) : null
+          }
+          
+          const data = {
+            check_type: tempData.checkType,
+            manager: tempData.manager,
+            remark: tempData.remark,
+            ...areaData
+          }
+          
+          createInventoryCheck(data).then(() => {
+            this.dialogFormVisible = false
+            this.$message({
+              type: 'success',
+              message: '创建成功'
+            })
+            this.getList()
+          }).catch(error => {
+            this.$message.error('创建失败: ' + (error.message || '未知错误'))
           })
-          this.getList()
         }
       })
     },
@@ -245,6 +311,49 @@ export default {
         path: '/warehouse/inventory-check/detail',
         query: { id: row.checkNo }
       })
+    },
+    // 获取区域信息文本
+    getAreaInfoText(warehouseId, checkArea) {
+      let result = ''
+      
+      // 查找仓库名称
+      const warehouse = this.warehouseOptions.find(w => w.id === warehouseId)
+      if (warehouse) {
+        result += warehouse.name
+      }
+      
+      // 区域和货架信息
+      if (checkArea && checkArea.length > 0) {
+        // 查找区域名称
+        const findAreaName = (options, id) => {
+          for (const option of options) {
+            if (option.id === id) {
+              return option.name
+            }
+            if (option.children && option.children.length > 0) {
+              const name = findAreaName(option.children, id)
+              if (name) return name
+            }
+          }
+          return null
+        }
+        
+        const areaId = typeof checkArea[0] === 'object' ? checkArea[0].id : checkArea[0]
+        const areaName = findAreaName(this.areaOptions, areaId)
+        if (areaName) {
+          result += ' - ' + areaName
+        }
+        
+        if (checkArea.length > 1) {
+          const shelfId = typeof checkArea[1] === 'object' ? checkArea[1].id : checkArea[1]
+          const shelfName = findAreaName(this.areaOptions, shelfId)
+          if (shelfName) {
+            result += ' - ' + shelfName
+          }
+        }
+      }
+      
+      return result || '未指定区域'
     }
   }
 }

@@ -138,7 +138,7 @@ export function updateRecord(data) {
 // 删除报表记录
 export function deleteRecord(params) {
   return request({
-    url: '/api/v1/warehouse/delete-record/',
+    url: '/api/v1/warehouse/delete_record/',
     method: 'delete',
     params
   })

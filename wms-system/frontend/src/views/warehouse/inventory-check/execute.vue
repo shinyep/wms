@@ -96,17 +96,13 @@
 </template>
 
 <script>
+import { getInventoryCheckDetail, getCheckItems, submitCheckResult, updateCheckItem } from '@/api/inventory'
+
 export default {
   name: 'InventoryCheckExecute',
   data() {
     return {
       checkNo: this.$route.query.id,
-      checkMode: 'scan',
-      scanCode: '',
-      manualForm: {
-        code: '',
-        quantity: 0
-      },
       checkInfo: {
         checkNo: '',
         checkType: '',
@@ -115,7 +111,14 @@ export default {
         startTime: '',
         progress: 0
       },
-      checkRecords: []
+      checkMode: 'manual', // 默认为手动盘点模式
+      scanCode: '',
+      manualForm: {
+        code: '',
+        quantity: 1
+      },
+      checkRecords: [],
+      loading: false
     }
   },
   created() {
@@ -127,45 +130,38 @@ export default {
       this.$router.push('/warehouse/inventory-check')
     },
     getCheckInfo() {
-      // 模拟获取盘点信息
-      this.checkInfo = {
-        checkNo: this.checkNo,
-        checkType: '全面盘点',
-        checkArea: 'A区-A1货架',
-        manager: '张三',
-        startTime: '2024-03-09 10:00:00',
-        progress: 30
-      }
+      this.loading = true
+      getInventoryCheckDetail(this.checkNo).then(response => {
+        this.checkInfo = response.data
+        this.loading = false
+      }).catch(error => {
+        this.loading = false
+        this.$message.error('获取盘点信息失败: ' + (error.message || '未知错误'))
+      })
     },
     getCheckRecords() {
-      // 模拟获取盘点记录
-      this.checkRecords = [
-        {
-          code: 'SP001',
-          name: '测试商品1',
-          spec: '规格1',
-          systemQuantity: 100,
-          actualQuantity: 98,
-          diff: -2,
-          checkTime: '2024-03-09 10:30:00'
-        }
-      ]
+      this.loading = true
+      getCheckItems(this.checkNo).then(response => {
+        this.checkRecords = response.data || []
+        this.loading = false
+      }).catch(error => {
+        this.loading = false
+        this.$message.error('获取盘点记录失败: ' + (error.message || '未知错误'))
+      })
     },
     handleScan() {
       if (!this.scanCode) {
         this.$message.warning('请输入商品条码')
         return
       }
-      // 模拟扫码盘点
-      this.checkRecords.unshift({
+      
+      // 构建盘点数据
+      const data = {
         code: this.scanCode,
-        name: '扫码商品',
-        spec: '规格X',
-        systemQuantity: 100,
-        actualQuantity: 100,
-        diff: 0,
-        checkTime: new Date().toLocaleString()
-      })
+        actual_quantity: 1
+      }
+      
+      this.submitCheckData(data)
       this.scanCode = ''
     },
     handleManualSubmit() {
@@ -173,37 +169,72 @@ export default {
         this.$message.warning('请输入商品编码')
         return
       }
-      // 模拟手动盘点
-      this.checkRecords.unshift({
+      
+      if (this.manualForm.quantity <= 0) {
+        this.$message.warning('实际数量必须大于0')
+        return
+      }
+      
+      // 构建盘点数据
+      const data = {
         code: this.manualForm.code,
-        name: '手动商品',
-        spec: '规格Y',
-        systemQuantity: 100,
-        actualQuantity: this.manualForm.quantity,
-        diff: this.manualForm.quantity - 100,
-        checkTime: new Date().toLocaleString()
-      })
+        actual_quantity: this.manualForm.quantity
+      }
+      
+      this.submitCheckData(data)
       this.manualForm.code = ''
-      this.manualForm.quantity = 0
+      this.manualForm.quantity = 1
+    },
+    submitCheckData(data) {
+      this.loading = true
+      submitCheckResult(this.checkNo, data).then(response => {
+        this.$message.success('盘点记录已添加')
+        // 刷新数据
+        this.getCheckRecords()
+        // 更新盘点信息（主要是进度）
+        this.getCheckInfo()
+        this.loading = false
+      }).catch(error => {
+        this.loading = false
+        this.$message.error('添加盘点记录失败: ' + (error.message || '未知错误'))
+      })
     },
     handleDelete(row) {
-      const index = this.checkRecords.indexOf(row)
-      this.checkRecords.splice(index, 1)
-      this.$message.success('删除成功')
-    },
-    handleSave() {
-      // 保存盘点记录
-      this.$message.success('保存成功')
-    },
-    handleFinish() {
-      this.$confirm('确认完成此次盘点任务?', '提示', {
+      this.$confirm('确认删除该盘点记录?', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        // 完成盘点任务
-        this.$message.success('盘点任务已完成')
-        this.$router.push('/warehouse/inventory-check')
+        this.loading = true
+        updateCheckItem(this.checkNo, row.id, { deleted: true }).then(() => {
+          this.$message.success('删除成功')
+          // 刷新数据
+          this.getCheckRecords()
+          this.loading = false
+        }).catch(error => {
+          this.loading = false
+          this.$message.error('删除失败: ' + (error.message || '未知错误'))
+        })
+      }).catch(() => {})
+    },
+    handleSave() {
+      this.$message.success('盘点数据已保存')
+    },
+    handleFinish() {
+      this.$confirm('确认完成盘点?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.loading = true
+        // 提交完成状态
+        updateCheckItem(this.checkNo, null, { status: '已完成', progress: 100 }).then(() => {
+          this.$message.success('盘点已完成')
+          this.$router.push('/warehouse/inventory-check')
+        }).catch(error => {
+          this.loading = false
+          this.$message.error('完成盘点失败: ' + (error.message || '未知错误'))
+        })
       }).catch(() => {})
     }
   }

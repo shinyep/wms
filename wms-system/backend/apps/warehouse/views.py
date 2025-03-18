@@ -21,7 +21,8 @@ from django.db.models.functions import TruncMonth, Concat
 from dateutil.relativedelta import relativedelta
 from decimal import Decimal
 from .models import Warehouse, WarehouseArea, WarehouseLocation, Report
-from apps.inventory.models import Transaction, Inventory, Product
+from apps.inventory.models import Transaction, Inventory
+from apps.product.models import Product, Unit
 from .serializers import WarehouseSerializer, WarehouseAreaSerializer, WarehouseLocationSerializer, ReportSerializer
 from ..user.views import WarehouseViewPermission, BasePermission
 import json
@@ -655,328 +656,262 @@ class WarehouseViewSet(viewsets.ModelViewSet):
                 {'error': f'Excel导入失败: {str(e)}'}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-    
-    @action(detail=False, methods=['get'])
-    def export_excel(self, request):
-        try:
-            # 获取仓库ID（如果指定）
-            warehouse_id = request.query_params.get('warehouse_id')
-            
-            # 准备查询条件
-            query_params = {'is_active': True}
-            if warehouse_id:
-                query_params['warehouse_id'] = warehouse_id
-            
-            # 获取库存记录
-            inventory_records = Inventory.objects.filter(
-                **query_params
-            ).select_related(
-                'warehouse',
-                'product',
-                'location'
-            ).order_by('location__code', 'product__code')
-            
-            # 准备数据列表
-            data_list = []
-            for index, record in enumerate(inventory_records, 1):
-                # 获取该商品的入库和出库统计
-                inbound_total = Transaction.objects.filter(
-                    warehouse=record.warehouse,
-                    product=record.product,
-                    transaction_type='IN',
-                    status='completed'
-                ).aggregate(total=models.Sum('quantity'))['total'] or 0
-                
-                outbound_total = Transaction.objects.filter(
-                    warehouse=record.warehouse,
-                    product=record.product,
-                    transaction_type='OUT',
-                    status='completed'
-                ).aggregate(total=models.Sum('quantity'))['total'] or 0
-                
-                # 计算金额
-                unit_price = record.product.price or 0
-                amount = unit_price * record.quantity
-                
-                data_list.append({
-                    '序号': index,
-                    '位置': record.location.code if record.location else '未分配',
-                    '品项': record.product.name,
-                    '规格/型号': record.product.spec or '',
-                    '单位': record.product.unit.name if record.product.unit else '',
-                    '期初库存': record.quantity - inbound_total + outbound_total,  # 当前库存 - 入库 + 出库
-                    '累计入库': inbound_total,
-                    '累计出库': outbound_total,
-                    '库存': record.quantity,
-                    '单价': unit_price,
-                    '金额': amount
-                })
-            
-            # 创建DataFrame
-            df = pd.DataFrame(data_list)
-            
-            # 创建一个BytesIO对象
-            excel_file = io.BytesIO()
-            
-            # 将DataFrame写入Excel
-            df.to_excel(excel_file, index=False, engine='openpyxl')
-            
-            # 设置文件指针到开始
-            excel_file.seek(0)
-            
-            # 生成文件名
-            filename = f'inventory_list_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-            
-            # 创建FileResponse
-            response = FileResponse(
-                excel_file,
-                as_attachment=True,
-                filename=filename,
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
-            
-            # 设置响应头
-            response['Access-Control-Expose-Headers'] = 'Content-Disposition'
-            response['Access-Control-Allow-Origin'] = '*'
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Excel导出失败: {str(e)}", exc_info=True)
-            return Response(
-                {'error': f'Excel导出失败: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=True, methods=['get'])
-    def export_template(self, request, pk=None):
-        """导出仓库模板（三个sheet）"""
-        try:
-            warehouse = self.get_object()
-            
-            # 创建一个Excel writer
-            excel_file = io.BytesIO()
-            writer = pd.ExcelWriter(excel_file, engine='openpyxl')
-            
-            # 创建示例数据
-            transaction_example = {
-                '序号': [1],
-                '日期': [datetime.now().strftime('%Y-%m-%d')],
-                '品项': ['示例商品'],
-                '规格/型号': ['规格型号'],
-                '单位': ['个'],
-                '数量': [100],
-                '单价': [10.00],
-                '金额': [1000.00],
-                '经手人': ['张三']
-            }
-            
-            inventory_example = {
-                '序号': [1],
-                '位置': ['A-01-01'],
-                '品项': ['示例商品'],
-                '规格/型号': ['规格型号'],
-                '单位': ['个'],
-                '期初库存': [1000],
-                '累计入库': [500],
-                '累计出库': [300],
-                '库存': [1200],
-                '单价': [10.00],
-                '库存金额': [12000.00]
-            }
-            
-            # 创建入库明细表
-            inbound_df = pd.DataFrame(transaction_example)
-            inbound_df.to_excel(writer, sheet_name=self.DEFAULT_SHEET_NAMES['inbound'], index=False)
-            
-            # 创建出库明细表
-            outbound_df = pd.DataFrame(transaction_example)
-            outbound_df.to_excel(writer, sheet_name=self.DEFAULT_SHEET_NAMES['outbound'], index=False)
-            
-            # 创建库存明细表
-            inventory_df = pd.DataFrame(inventory_example)
-            inventory_df.to_excel(writer, sheet_name=self.DEFAULT_SHEET_NAMES['inventory'], index=False)
-            
-            # 获取工作簿对象
-            workbook = writer.book
-            
-            # 设置每个sheet的列宽
-            for sheet_name in self.DEFAULT_SHEET_NAMES.values():
-                worksheet = workbook[sheet_name]
-                # 设置列宽
-                for column in worksheet.columns:
-                    max_length = 0
-                    column = [cell for cell in column]
-                    for cell in column:
-                        try:
-                            if len(str(cell.value)) > max_length:
-                                max_length = len(str(cell.value))
-                        except:
-                            pass
-                    adjusted_width = (max_length + 2)
-                    worksheet.column_dimensions[column[0].column_letter].width = adjusted_width
-                
-                # 设置标题行格式
-                for cell in worksheet[1]:
-                    cell.font = Font(bold=True)
-                    cell.alignment = Alignment(horizontal='center')
-                    cell.fill = PatternFill(start_color='CCCCCC', end_color='CCCCCC', fill_type='solid')
-            
-            # 保存Excel文件
-            writer.close()
-            excel_file.seek(0)
-            
-            # 生成文件名
-            filename = f"{warehouse.name}_template_{now().strftime('%Y%m%d_%H%M%S')}.xlsx"
-            
-            # 返回文件
-            response = HttpResponse(
-                excel_file.getvalue(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            )
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
-            return response
-            
-        except Exception as e:
-            return Response(
-                {'error': f'模板导出失败: {str(e)}'}, 
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
-
-    @action(detail=False, methods=['post'])
-    def create_record(self, request):
-        """创建报表记录"""
-        try:
-            warehouse_id = request.data.get('warehouse_id')
-            month = request.data.get('month')
-            record_type = request.data.get('record_type')
-            record_data = request.data.get('record_data')
-
-            if not all([warehouse_id, month, record_type, record_data]):
-                return Response({'error': '缺少必要参数'}, status=status.HTTP_400_BAD_REQUEST)
-
-            # 获取或创建报表
-            try:
-                warehouse = Warehouse.objects.get(id=warehouse_id)
-                year, month = month.split('-')
-                report_date = f"{year}-{month}-01"
-                
-                report = Report.objects.filter(
-                    warehouse=warehouse,
-                    report_date=report_date
-                ).first()
-                
-                if not report:
-                    report = Report.objects.create(
-                        title=f"{warehouse.name}_{year}年{month}月报表",
-                        warehouse=warehouse,
-                        report_date=report_date,
-                        data={
-                            'inbound': [],
-                            'outbound': [],
-                            'inventory': []
-                        },
-                        creator=request.user if request.user.is_authenticated else None
-                    )
-                
-                # 添加新记录
-                report_data['id'] = str(uuid.uuid4())  # 生成唯一ID
-                report.data[record_type].append(record_data)
-                report.save()
-                
-                return Response({
-                    'message': '创建成功',
-                    'id': report_data['id']
-                })
-                
-            except Warehouse.DoesNotExist:
-                return Response({'error': '仓库不存在'}, status=status.HTTP_404_NOT_FOUND)
-            except Exception as e:
-                return Response({'error': f'创建记录失败: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            return Response({'error': f'系统错误: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-    @action(detail=False, methods=['put'])
-    def update_record(self, request):
-        """更新报表记录"""
-        try:
-            warehouse_id = request.data.get('warehouse_id')
-            month = request.data.get('month')
-            record_type = request.data.get('record_type')
-            record_id = request.data.get('record_id')
-            record_data = request.data.get('record_data')
-
-            if not all([warehouse_id, month, record_type, record_id, record_data]):
-                return Response({'error': '缺少必要参数'}, status=status.HTTP_400_BAD_REQUEST)
-
-            try:
-                warehouse = Warehouse.objects.get(id=warehouse_id)
-                year, month = month.split('-')
-                report_date = f"{year}-{month}-01"
-                
-                report = Report.objects.get(
-                    warehouse=warehouse,
-                    report_date=report_date
-                )
-                
-                # 更新记录
-                records = report.data[record_type]
-                for i, record in enumerate(records):
-                    if record['id'] == record_id:
-                        records[i] = {**record_data, 'id': record_id}
-                        break
-                
-                report.save()
-                return Response({'message': '更新成功'})
-                
-            except Warehouse.DoesNotExist:
-                return Response({'error': '仓库不存在'}, status=status.HTTP_404_NOT_FOUND)
-            except Report.DoesNotExist:
-                return Response({'error': '报表不存在'}, status=status.HTTP_404_NOT_FOUND)
-            except Exception as e:
-                return Response({'error': f'更新记录失败: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
-                
-        except Exception as e:
-            return Response({'error': f'系统错误: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['delete'])
     def delete_record(self, request):
-        """删除报表记录"""
+        """删除报表记录，同时清理关联的入库和出库记录"""
         try:
+            print("===== 收到删除记录请求 =====")
+            print(f"查询参数: {request.query_params}")
+            
             warehouse_id = request.query_params.get('warehouse_id')
             month = request.query_params.get('month')
             record_type = request.query_params.get('record_type')
             record_id = request.query_params.get('record_id')
 
             if not all([warehouse_id, month, record_type, record_id]):
+                print(f"缺少必要参数: warehouse_id={warehouse_id}, month={month}, record_type={record_type}, record_id={record_id}")
                 return Response({'error': '缺少必要参数'}, status=status.HTTP_400_BAD_REQUEST)
 
             try:
-                warehouse = Warehouse.objects.get(id=warehouse_id)
-                year, month = month.split('-')
-                report_date = f"{year}-{month}-01"
-                
-                report = Report.objects.get(
-                    warehouse=warehouse,
-                    report_date=report_date
-                )
-                
-                # 删除记录
-                records = report.data[record_type]
-                report.data[record_type] = [r for r in records if r['id'] != record_id]
-                report.save()
-                
-                return Response({'message': '删除成功'})
+                with transaction.atomic():  # 使用事务确保数据一致性
+                    warehouse = Warehouse.objects.get(id=warehouse_id)
+                    year, month_num = month.split('-')
+                    report_date = f"{year}-{month_num}-01"
+                    
+                    report = Report.objects.get(
+                        warehouse=warehouse,
+                        report_date=report_date
+                    )
+                    
+                    # 记录删除前的数据量
+                    before_delete = {
+                        'inbound': len(report.data.get('inbound', [])),
+                        'outbound': len(report.data.get('outbound', [])),
+                        'inventory': len(report.data.get('inventory', []))
+                    }
+                    
+                    records = report.data.get(record_type, [])
+                    if not records:
+                        return Response({'error': f'没有找到{record_type}类型的记录'}, status=status.HTTP_404_NOT_FOUND)
+                    
+                    # 初始化删除的相关记录计数
+                    related_deleted = {'inbound': 0, 'outbound': 0, 'transactions': 0}
+                    
+                    # 查找目标记录
+                    target_item = None
+                    target_index = -1
+                    for i, item in enumerate(records):
+                        if item.get('id') == record_id:
+                            target_item = item
+                            target_index = i
+                            break
+                    
+                    if target_item is None:
+                        print(f"未找到记录ID: {record_id}")
+                        return Response({'error': f'未找到记录(ID: {record_id})'}, status=status.HTTP_404_NOT_FOUND)
+                    
+                    # 获取品项和规格
+                    item_name = target_item.get('品项', '')
+                    item_spec = target_item.get('规格/型号', '')
+                    print(f"要删除的记录: 类型={record_type}, 品项={item_name}, 规格={item_spec}")
+                    
+                    # 查找相关的出入库记录
+                    if record_type == 'inventory':
+                        # 处理库存明细记录删除
+                        # 1. 找到并删除相关入库记录
+                        inbound_records = report.data.get('inbound', [])
+                        original_inbound_count = len(inbound_records)
+                        filtered_inbound = []
+                        
+                        for r in inbound_records:
+                            # 精确匹配品项和规格
+                            if r.get('品项') == item_name and r.get('规格/型号') == item_spec:
+                                print(f"删除相关入库记录: {r.get('id', 'no-id')}, 日期={r.get('日期', 'unknown')}")
+                            else:
+                                filtered_inbound.append(r)
+                        
+                        report.data['inbound'] = filtered_inbound
+                        related_deleted['inbound'] = original_inbound_count - len(filtered_inbound)
+                        
+                        # 2. 找到并删除相关出库记录
+                        outbound_records = report.data.get('outbound', [])
+                        original_outbound_count = len(outbound_records)
+                        filtered_outbound = []
+                        
+                        for r in outbound_records:
+                            # 精确匹配品项和规格
+                            if r.get('品项') == item_name and r.get('规格/型号') == item_spec:
+                                print(f"删除相关出库记录: {r.get('id', 'no-id')}, 日期={r.get('日期', 'unknown')}")
+                            else:
+                                filtered_outbound.append(r)
+                        
+                        report.data['outbound'] = filtered_outbound
+                        related_deleted['outbound'] = original_outbound_count - len(filtered_outbound)
+                        
+                        # 3. 删除数据库中对应的Transaction记录
+                        from apps.inventory.models import Transaction, Product
+                        
+                        # 先查找完全匹配的产品
+                        products = Product.objects.filter(name=item_name)
+                        if not products.exists():
+                            # 如果找不到完全匹配的，尝试模糊匹配但更加谨慎
+                            products = Product.objects.filter(name__icontains=item_name)
+                            if products.count() > 3:  # 避免匹配过多产品导致误删
+                                print(f"模糊匹配到过多产品({products.count()}个)，不执行删除")
+                                products = Product.objects.none()
+                        
+                        if products.exists():
+                            # 构建查询条件
+                            query_params = {
+                                'warehouse_id': warehouse_id,
+                                'product__in': products,
+                                'transaction_date__year': int(year),
+                                'transaction_date__month': int(month_num)
+                            }
+                            
+                            # 精确匹配规格
+                            if item_spec:
+                                query_params['spec'] = item_spec
+                            
+                            transactions = Transaction.objects.filter(**query_params)
+                            
+                            # 记录将删除的事务详情
+                            transaction_count = transactions.count()
+                            for t in transactions:
+                                print(f"将删除Transaction: ID={t.id}, 类型={t.transaction_type}, 产品={t.product.name}, 规格={t.spec}, 日期={t.transaction_date}")
+                            
+                            if transaction_count > 0:
+                                transactions.delete()
+                                related_deleted['transactions'] = transaction_count
+                                print(f"成功删除{transaction_count}条Transaction记录")
+                            else:
+                                print(f"未找到与品项[{item_name}]规格[{item_spec}]匹配的Transaction记录")
+                        else:
+                            print(f"未找到与品项[{item_name}]匹配的Product记录")
+                    
+                    elif record_type == 'inbound' or record_type == 'outbound':
+                        # 处理入库/出库记录删除
+                        from apps.inventory.models import Transaction, Product
+                        
+                        transaction_type = 'IN' if record_type == 'inbound' else 'OUT'
+                        item_date = target_item.get('日期')
+                        print(f"删除{record_type}记录: 品项={item_name}, 规格={item_spec}, 日期={item_date}")
+                        
+                        # 查找匹配的产品
+                        products = Product.objects.filter(name=item_name)
+                        if not products.exists():
+                            products = Product.objects.filter(name__icontains=item_name)
+                            if products.count() > 3:
+                                print(f"模糊匹配到过多产品({products.count()}个)，不执行删除")
+                                products = Product.objects.none()
+                        if products.exists():
+                            # 构建基本查询条件
+                            query_params = {
+                                'warehouse_id': warehouse_id,
+                                'product__in': products,
+                                'transaction_type': transaction_type
+                            }
+                            
+                            # 精确匹配规格
+                            if item_spec:
+                                query_params['spec'] = item_spec
+                                
+                            # 匹配日期(如果有)
+                            if item_date:
+                                try:
+                                    transaction_date = datetime.strptime(item_date, '%Y-%m-%d').date()
+                                    query_params['transaction_date'] = transaction_date
+                                    print(f"匹配日期: {transaction_date}")
+                                except Exception as e:
+                                    print(f"日期格式转换失败: {e}, 原始日期={item_date}")
+                                    # 使用年月匹配
+                                    query_params['transaction_date__year'] = int(year)
+                                    query_params['transaction_date__month'] = int(month_num)
+                            else:
+                                # 使用年月匹配
+                                query_params['transaction_date__year'] = int(year)
+                                query_params['transaction_date__month'] = int(month_num)
+                            
+                            # 匹配数量(如果有)
+                            if 'quantity' in target_item and target_item['quantity']:
+                                query_params['quantity'] = target_item['quantity']
+                                
+                            # 查找并删除匹配的Transaction记录
+                            transactions = Transaction.objects.filter(**query_params)
+                            
+                            # 记录详情
+                            transaction_count = transactions.count()
+                            for t in transactions:
+                                print(f"将删除Transaction: ID={t.id}, 类型={t.transaction_type}, 产品={t.product.name}, 规格={t.spec}, 日期={t.transaction_date}")
+                            
+                            if transaction_count > 0:
+                                transactions.delete()
+                                related_deleted['transactions'] = transaction_count
+                                print(f"成功删除{transaction_count}条Transaction记录")
+                            else:
+                                print(f"未找到与{record_type}记录匹配的Transaction")
+                        else:
+                            print(f"未找到与品项[{item_name}]匹配的Product记录")
+                    
+                    # 删除报表中的目标记录
+                    if target_index >= 0:
+                        records.pop(target_index)
+                        report.data[record_type] = records
+                        print(f"从报表中删除了{record_type}记录")
+                    
+                    # 保存更改
+                    report.save()
+                    
+                    # 记录删除后的数据量
+                    after_delete = {
+                        'inbound': len(report.data.get('inbound', [])),
+                        'outbound': len(report.data.get('outbound', [])),
+                        'inventory': len(report.data.get('inventory', []))
+                    }
+                    
+                    # 检查是否有变化
+                    has_changes = (
+                        before_delete['inbound'] != after_delete['inbound'] or
+                        before_delete['outbound'] != after_delete['outbound'] or
+                        before_delete['inventory'] != after_delete['inventory'] or
+                        related_deleted['transactions'] > 0
+                    )
+                    
+                    if not has_changes:
+                        print("删除操作没有产生任何变化")
+                        return Response({'error': '删除操作没有产生任何变化'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    
+                    # 从数据库重新读取确认变更已保存
+                    report.refresh_from_db()
+                    
+                    # 记录日志
+                    print(f"删除成功: before={before_delete}, after={after_delete}, related_deleted={related_deleted}")
+                    
+                    return Response({
+                        'status': 'success',
+                        'message': '删除成功',
+                        'data': {
+                            'before': before_delete,
+                            'after': after_delete,
+                            'related_deleted': related_deleted
+                        }
+                    })
                 
             except Warehouse.DoesNotExist:
                 return Response({'error': '仓库不存在'}, status=status.HTTP_404_NOT_FOUND)
             except Report.DoesNotExist:
                 return Response({'error': '报表不存在'}, status=status.HTTP_404_NOT_FOUND)
             except Exception as e:
-                return Response({'error': f'删除记录失败: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+                import traceback
+                print(f"删除记录失败: {str(e)}")
+                print(traceback.format_exc())
+                return Response({'error': f'删除记录失败: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                 
         except Exception as e:
+            import traceback
+            print(f"系统错误: {str(e)}")
+            print(traceback.format_exc())
             return Response({'error': f'系统错误: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post', 'put'])
@@ -1023,7 +958,7 @@ class WarehouseViewSet(viewsets.ModelViewSet):
             try:
                 report = Report.objects.filter(key=report_key).first()
             except Exception as e:
-                pass
+                logger.error(f"通过key查找报表失败: {str(e)}")
                 
             # 如果通过key没找到，尝试其他条件查找
             if not report:
@@ -1038,7 +973,7 @@ class WarehouseViewSet(viewsets.ModelViewSet):
                         # 更新key
                         report.key = report_key
                 except Exception as e:
-                    pass
+                    logger.error(f"通过日期查找报表失败: {str(e)}")
             
             # 如果仍未找到，创建新报表
             if not report:
@@ -1053,16 +988,72 @@ class WarehouseViewSet(viewsets.ModelViewSet):
                 )
             
             # 更新报表数据
-            report_data = report.data or {}
+            report_data = {}
+            
+            # 确保数据中的每个记录都有唯一ID
+            def ensure_record_ids(records, prefix):
+                result = []
+                seen_ids = set()
+                for record in records:
+                    if not record:  # 跳过空记录
+                        continue
+                    # 如果记录没有ID或ID重复，生成新ID
+                    if 'id' not in record or record['id'] in seen_ids:
+                        record['id'] = f"{prefix}_{uuid.uuid4()}"
+                    seen_ids.add(record['id'])
+                    result.append(record)
+                return result
+            
+            # 处理入库、出库和库存数据
+            inbound_data = ensure_record_ids(inbound_data, 'in')
+            outbound_data = ensure_record_ids(outbound_data, 'out')
+            inventory_data = ensure_record_ids(inventory_data, 'inv')
+            
+            # 记录更新前的数据量
+            before_update = {
+                'inbound': len(report.data.get('inbound', [])) if report.data else 0,
+                'outbound': len(report.data.get('outbound', [])) if report.data else 0,
+                'inventory': len(report.data.get('inventory', [])) if report.data else 0
+            }
             
             # 完全替换入库、出库和库存数据
             report_data['inbound'] = inbound_data
             report_data['outbound'] = outbound_data
             report_data['inventory'] = inventory_data
             
+            # 记录更新后的数据量
+            after_update = {
+                'inbound': len(inbound_data),
+                'outbound': len(outbound_data),
+                'inventory': len(inventory_data)
+            }
+            
+            # 检查数据变化
+            logger.info(f"数据更新前: {before_update}")
+            logger.info(f"数据更新后: {after_update}")
+            
             # 保存更新后的数据
             report.data = report_data
             report.save()
+            
+            # 强制从数据库重新读取数据以验证保存是否成功
+            report.refresh_from_db()
+            saved_data = report.data
+            
+            # 验证保存的数据
+            if (len(saved_data.get('inventory', [])) != len(inventory_data) or
+                len(saved_data.get('inbound', [])) != len(inbound_data) or
+                len(saved_data.get('outbound', [])) != len(outbound_data)):
+                logger.error("数据保存验证失败")
+                return Response({
+                    'error': '数据保存验证失败，请重试'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            # 记录操作日志
+            logger.info(f"更新月度报表成功: warehouse={warehouse.name}, month={month}, "
+                       f"inventory_count={len(inventory_data)}, "
+                       f"inbound_count={len(inbound_data)}, "
+                       f"outbound_count={len(outbound_data)}")
             
             return Response({
                 'status': 'success', 
@@ -1075,10 +1066,9 @@ class WarehouseViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             import traceback
-            print(f"更新月度报表出错: {str(e)}")
-            print(traceback.format_exc())
+            logger.error(f"更新月度报表出错: {str(e)}\n{traceback.format_exc()}")
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-            
+
     @action(detail=False, methods=['post'])
     def create_auto_monthly_report(self, request):
         """
